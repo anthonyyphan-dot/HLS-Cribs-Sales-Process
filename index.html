@@ -1,0 +1,662 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Cribs — Call Flow Dashboard</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --purple-950:#221333;
+    --purple-800:#3f1d6b;
+    --purple-700:#552994;
+    --purple-500:#7c3aed;
+    --purple-100:#efe6fc;
+    --yellow-400:#f6c945;
+    --yellow-500:#eab313;
+    --white:#ffffff;
+    --paper:#faf8fc;
+    --ink:#241a35;
+    --ink-soft:#5c5270;
+    --line: #e4dcf2;
+    --radius: 14px;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    font-family:'Inter',sans-serif;
+    background:var(--paper);
+    color:var(--ink);
+    -webkit-font-smoothing:antialiased;
+  }
+  h1,h2,h3,.display{
+    font-family:'Fraunces',serif;
+    font-weight:600;
+    letter-spacing:-0.01em;
+  }
+  .script, .script * { font-family:'IBM Plex Mono', monospace; }
+
+  /* ===== Layout ===== */
+  .app{
+    display:grid;
+    grid-template-columns: 272px 1fr;
+    min-height:100vh;
+  }
+  @media (max-width: 860px){
+    .app{grid-template-columns: 1fr;}
+    .sidebar{position:sticky; top:0; z-index:20;}
+  }
+
+  /* ===== Sidebar ===== */
+  .sidebar{
+    background: linear-gradient(180deg, var(--purple-950), var(--purple-800) 60%, var(--purple-700));
+    color:var(--white);
+    padding:28px 20px 24px;
+    display:flex;
+    flex-direction:column;
+    gap:22px;
+  }
+  .brand{
+    display:flex; flex-direction:column; gap:2px;
+    padding-bottom:16px;
+    border-bottom:1px solid rgba(255,255,255,0.14);
+  }
+  .brand .eyebrow{
+    font-size:11px; letter-spacing:.14em; text-transform:uppercase;
+    color:var(--yellow-400); font-weight:700;
+  }
+  .brand .name{ font-size:22px; color:var(--white); }
+  .brand .sub{ font-size:12.5px; color:rgba(255,255,255,0.6); }
+
+  nav.steps{ display:flex; flex-direction:column; gap:4px; }
+  .step-link{
+    display:flex; align-items:center; gap:12px;
+    padding:11px 12px;
+    border-radius:10px;
+    color:rgba(255,255,255,0.82);
+    cursor:pointer;
+    font-size:14.5px;
+    font-weight:600;
+    transition: background .15s ease, color .15s ease;
+    border:1px solid transparent;
+  }
+  .step-link .num{
+    width:24px; height:24px; border-radius:50%;
+    background:rgba(255,255,255,0.1);
+    display:flex; align-items:center; justify-content:center;
+    font-family:'Fraunces',serif; font-size:12.5px; font-weight:700;
+    flex-shrink:0;
+    color:var(--white);
+  }
+  .step-link:hover{ background:rgba(255,255,255,0.08); color:var(--white); }
+  .step-link.active{
+    background:var(--white);
+    color:var(--purple-800);
+  }
+  .step-link.active .num{
+    background:var(--yellow-400);
+    color:var(--purple-950);
+  }
+
+  .sidebar-foot{ margin-top:auto; display:flex; flex-direction:column; gap:10px; }
+  .objection-btn{
+    display:flex; align-items:center; justify-content:space-between;
+    background:var(--yellow-400);
+    color:var(--purple-950);
+    font-weight:800;
+    border:none;
+    border-radius:10px;
+    padding:13px 14px;
+    cursor:pointer;
+    font-size:14px;
+    font-family:'Inter',sans-serif;
+    transition: transform .12s ease, background .12s ease;
+  }
+  .objection-btn:hover{ background:#ffd45f; transform:translateY(-1px); }
+  .call-tag{
+    font-size:11.5px; color:rgba(255,255,255,0.45); text-align:center;
+  }
+
+  /* ===== Main ===== */
+  main{ padding:40px 48px 80px; max-width:920px; }
+  @media (max-width:640px){ main{padding:24px 18px 60px;} }
+
+  .stage-eyebrow{
+    display:inline-flex; align-items:center; gap:8px;
+    font-size:12px; letter-spacing:.12em; text-transform:uppercase;
+    color:var(--purple-700); font-weight:700; margin-bottom:10px;
+  }
+  .stage-eyebrow .dot{ width:7px; height:7px; border-radius:50%; background:var(--yellow-500); }
+  h1.stage-title{ font-size:34px; margin:0 0 8px; color:var(--purple-950); }
+  .stage-desc{ color:var(--ink-soft); font-size:15.5px; line-height:1.55; max-width:620px; margin-bottom:32px; }
+
+  section.block{ margin-bottom:34px; }
+  .block-head{ display:flex; align-items:baseline; gap:10px; margin-bottom:14px; }
+  .block-head h2{ font-size:19px; color:var(--purple-900); margin:0; }
+  .block-head .tag{
+    font-size:11px; font-weight:700; letter-spacing:.06em; text-transform:uppercase;
+    color:var(--purple-700); background:var(--purple-100); padding:3px 9px; border-radius:20px;
+  }
+
+  .card{
+    background:var(--white);
+    border:1px solid var(--line);
+    border-radius:var(--radius);
+    padding:20px 22px;
+    margin-bottom:14px;
+  }
+  .card h3{ font-size:14.5px; margin:0 0 10px; color:var(--purple-800); }
+  .card p{ margin:0 0 8px; line-height:1.6; font-size:14.5px; color:var(--ink); }
+  .card ul{ margin:6px 0 0; padding-left:20px; color:var(--ink); }
+  .card li{ margin-bottom:6px; font-size:14.5px; line-height:1.5; }
+
+  .script{
+    background:var(--purple-950);
+    color:#f2ecff;
+    border-radius:12px;
+    padding:16px 18px;
+    font-size:13.3px;
+    line-height:1.65;
+    position:relative;
+    white-space:pre-wrap;
+    margin-top:10px;
+    border-left:4px solid var(--yellow-400);
+  }
+  .script .speaker{
+    color:var(--yellow-400);
+    font-weight:600;
+    display:block;
+    margin-bottom:4px;
+  }
+  .copy-btn{
+    position:absolute; top:10px; right:10px;
+    background:rgba(255,255,255,0.08);
+    color:#f2ecff;
+    border:1px solid rgba(255,255,255,0.18);
+    border-radius:7px;
+    font-family:'Inter',sans-serif;
+    font-size:11px;
+    padding:5px 9px;
+    cursor:pointer;
+    transition:background .15s;
+  }
+  .copy-btn:hover{ background:rgba(255,255,255,0.18); }
+  .copy-btn.copied{ background:var(--yellow-400); color:var(--purple-950); border-color:var(--yellow-400); }
+
+  .flow-grid{ display:grid; grid-template-columns:repeat(auto-fit,minmax(200px,1fr)); gap:12px; }
+  .flow-step{
+    background:var(--white); border:1px solid var(--line); border-radius:12px;
+    padding:16px; position:relative;
+  }
+  .flow-step .fnum{
+    font-family:'Fraunces',serif; font-weight:700; font-size:26px; color:var(--purple-100);
+    -webkit-text-stroke: 1.4px var(--purple-500);
+    color: transparent;
+    position:absolute; top:10px; right:14px;
+  }
+  .flow-step h4{ margin:0 0 6px; font-size:14.5px; color:var(--purple-900); }
+  .flow-step p{ margin:0; font-size:13px; color:var(--ink-soft); line-height:1.5; }
+
+  .checklist{ display:grid; grid-template-columns:repeat(auto-fit,minmax(180px,1fr)); gap:10px; }
+  .check-item{
+    display:flex; align-items:center; gap:10px;
+    background:var(--white); border:1px solid var(--line); border-radius:10px;
+    padding:12px 14px; font-size:13.5px; font-weight:600; color:var(--purple-900);
+  }
+  .check-item .box{
+    width:18px; height:18px; border-radius:5px; border:2px solid var(--purple-500);
+    flex-shrink:0; cursor:pointer; display:flex; align-items:center; justify-content:center;
+    transition: background .1s;
+  }
+  .check-item .box.on{ background:var(--yellow-400); border-color:var(--yellow-400); }
+  .check-item .box.on::after{ content:"✓"; font-size:12px; color:var(--purple-950); font-weight:800; }
+
+  .callout{
+    display:flex; gap:12px; align-items:flex-start;
+    background:var(--purple-100); border-radius:12px; padding:14px 16px;
+    font-size:13.8px; color:var(--purple-900); line-height:1.55; margin-bottom:14px;
+  }
+  .callout .icon{ font-size:16px; }
+
+  .low-high{ display:grid; grid-template-columns:1fr 1fr; gap:14px; }
+  @media(max-width:640px){ .low-high{grid-template-columns:1fr;} }
+  .lh-card{ border-radius:12px; padding:16px 18px; }
+  .lh-card.low{ background:var(--purple-100); border:1px solid var(--purple-500); }
+  .lh-card.high{ background:#fff8e0; border:1px solid var(--yellow-500); }
+  .lh-card .lbl{ font-size:11px; font-weight:800; letter-spacing:.08em; text-transform:uppercase; margin-bottom:8px; display:block; }
+  .lh-card.low .lbl{ color:var(--purple-700); }
+  .lh-card.high .lbl{ color:#8a6d05; }
+
+  /* ===== Objection Drawer ===== */
+  .overlay{
+    position:fixed; inset:0; background:rgba(34,19,51,0.55);
+    opacity:0; pointer-events:none; transition:opacity .2s ease; z-index:30;
+  }
+  .overlay.show{ opacity:1; pointer-events:auto; }
+  .drawer{
+    position:fixed; top:0; right:0; height:100%; width:min(480px, 92vw);
+    background:var(--paper); z-index:31;
+    transform:translateX(100%); transition:transform .25s ease;
+    display:flex; flex-direction:column;
+    box-shadow:-10px 0 40px rgba(34,19,51,0.25);
+  }
+  .drawer.show{ transform:translateX(0); }
+  .drawer-head{
+    background:var(--purple-950); color:var(--white);
+    padding:22px 22px 18px; display:flex; justify-content:space-between; align-items:flex-start;
+  }
+  .drawer-head h2{ margin:0 0 4px; font-size:20px; }
+  .drawer-head p{ margin:0; font-size:12.5px; color:rgba(255,255,255,0.6); max-width:340px; }
+  .drawer-close{
+    background:rgba(255,255,255,0.1); border:none; color:var(--white);
+    width:30px; height:30px; border-radius:8px; cursor:pointer; font-size:16px; flex-shrink:0;
+  }
+  .drawer-body{ padding:18px 20px 40px; overflow-y:auto; flex:1; }
+  .aapa-strip{
+    display:flex; gap:6px; margin-bottom:18px; flex-wrap:wrap;
+  }
+  .aapa-chip{
+    background:var(--purple-100); color:var(--purple-800); font-size:11.5px; font-weight:700;
+    padding:6px 10px; border-radius:8px;
+  }
+  .obj-search{
+    width:100%; padding:11px 14px; border-radius:10px; border:1px solid var(--line);
+    font-size:13.5px; margin-bottom:16px; font-family:'Inter',sans-serif;
+    background:var(--white); color:var(--ink);
+  }
+  .obj-search:focus{ outline:2px solid var(--purple-500); outline-offset:1px; }
+  .obj-group-label{
+    font-size:11px; font-weight:800; letter-spacing:.08em; text-transform:uppercase;
+    color:var(--purple-700); margin:18px 0 8px;
+  }
+  .obj-item{
+    border:1px solid var(--line); border-radius:10px; margin-bottom:8px; overflow:hidden; background:var(--white);
+  }
+  .obj-q{
+    padding:12px 14px; cursor:pointer; font-size:13.8px; font-weight:600; color:var(--purple-900);
+    display:flex; justify-content:space-between; align-items:center; gap:10px;
+  }
+  .obj-q .chev{ transition:transform .15s; color:var(--purple-500); flex-shrink:0; }
+  .obj-item.open .obj-q .chev{ transform:rotate(90deg); }
+  .obj-a{
+    max-height:0; overflow:hidden; transition:max-height .2s ease;
+    font-size:13.3px; color:var(--ink-soft); line-height:1.6; padding:0 14px;
+  }
+  .obj-item.open .obj-a{ max-height:400px; padding:0 14px 14px; }
+
+  /* focus visibility */
+  a:focus-visible, button:focus-visible, .step-link:focus-visible, .box:focus-visible{
+    outline:2px solid var(--yellow-500); outline-offset:2px;
+  }
+
+  @media (prefers-reduced-motion: reduce){
+    *{ transition:none !important; }
+  }
+
+  .hidden{ display:none !important; }
+</style>
+</head>
+<body>
+
+<div class="app">
+  <aside class="sidebar">
+    <div class="brand">
+      <span class="eyebrow">Cribs</span>
+      <span class="name">Call Flow</span>
+      <span class="sub">Live reference for the sales call</span>
+    </div>
+    <nav class="steps" id="stepNav">
+      <div class="step-link active" data-target="s1"><span class="num">1</span> Introduction</div>
+      <div class="step-link" data-target="s2"><span class="num">2</span> Fact Find</div>
+      <div class="step-link" data-target="s3"><span class="num">3</span> Solution &amp; Comparison</div>
+      <div class="step-link" data-target="s4"><span class="num">4</span> 6 Steps of Closing</div>
+      <div class="step-link" data-target="s5"><span class="num">5</span> Follow Up</div>
+    </nav>
+    <div class="sidebar-foot">
+      <button class="objection-btn" id="openDrawer">Objection handling <span>⚡</span></button>
+      <span class="call-tag">Keep this open while you dial</span>
+    </div>
+  </aside>
+
+  <main>
+
+    <!-- STEP 1: INTRODUCTION -->
+    <section id="s1" class="stage">
+      <span class="stage-eyebrow"><span class="dot"></span>Step 1 of 5</span>
+      <h1 class="stage-title">Introduction</h1>
+      <p class="stage-desc">Open the call with purpose: who you are, why you're calling, what's in it for the customer, and what happens next. Four moves, in order.</p>
+
+      <section class="block">
+        <div class="block-head"><h2>The four moves</h2></div>
+        <div class="flow-grid">
+          <div class="flow-step"><span class="fnum">01</span><h4>Introduction</h4><p>Who you are, where you're calling from, why you're calling. Add call recording advice.</p></div>
+          <div class="flow-step"><span class="fnum">02</span><h4>Why?</h4><p>Find the pain point. What's the overarching goal — long &amp; short term?</p></div>
+          <div class="flow-step"><span class="fnum">03</span><h4>Value proposition</h4><p>How do we benefit the customer, and how are we different from other brokers/banks?</p></div>
+          <div class="flow-step"><span class="fnum">04</span><h4>Agenda</h4><p>What will happen on the call, and what the customer walks away with.</p></div>
+        </div>
+      </section>
+
+      <section class="block">
+        <div class="block-head"><h2>Opening the call</h2><span class="tag">Script</span></div>
+        <div class="card">
+          <h3>Introduction line</h3>
+          <div class="script">
+<span class="speaker">BROKER</span>"Hi this is XYZ calling from Aussie Home Loans, I'm one of the mortgage brokers here and I'm just following up on a bit of research you've done on our platform recently, I understand you are looking to review your rate/purchase a property, how's that going so far?"
+            <button class="copy-btn">Copy</button>
+          </div>
+        </div>
+      </section>
+
+      <section class="block">
+        <div class="block-head"><h2>Why? — find the pain point</h2><span class="tag">Script</span></div>
+        <div class="card">
+          <h3>Purchase — "what's motivating you to start looking now?"</h3>
+          <ul>
+            <li>Sick of paying rent?</li>
+            <li>Wanting to move away from your parents for more independence?</li>
+            <li>Get your foot in the property market and build some wealth?</li>
+            <li>Upsizing?</li>
+            <li>Downsizing?</li>
+          </ul>
+        </div>
+        <div class="card">
+          <h3>Refinance</h3>
+          <div class="script">
+<span class="speaker">CUSTOMER</span>"I'm looking to reduce my repayments with a cheaper rate."
+
+<span class="speaker">BROKER</span>"That's all good — everyone always wants a cheaper rate, but were you saving up towards buying something else, or using that extra money towards paying down the home loan sooner?"
+"Were you also looking to cash out any funds for renovations or to consolidate any debt?"
+            <button class="copy-btn">Copy</button>
+          </div>
+        </div>
+      </section>
+
+      <section class="block">
+        <div class="block-head"><h2>Value proposition</h2><span class="tag">Script</span></div>
+        <div class="card">
+          <h3>Purchase</h3>
+          <div class="script">
+<span class="speaker">BROKER</span>"Have you ever worked with a mortgage broker before?"
+<span class="speaker">CUSTOMER</span>"No"
+<span class="speaker">BROKER</span>"No worries — so my job as a mortgage broker is to review your finances and assess your borrowing power with the panel lenders that we work with and recommend the right bank for you. In addition to that, we have also introduced buyers' agents and conveyancers' services to assist you with finding the right property and getting it across the line on the legal side of things. So pretty much your one stop shop for all things related to buying a property."
+            <button class="copy-btn">Copy</button>
+          </div>
+        </div>
+        <div class="card">
+          <h3>Refinance</h3>
+          <div class="script">
+<span class="speaker">BROKER</span>"As a broker we have access to over 25 different lenders so I'll be able to quickly review your rate and find out what your top 3 options would look like without you having to speak to any of those lenders or go into any branches."
+            <button class="copy-btn">Copy</button>
+          </div>
+        </div>
+      </section>
+
+      <section class="block">
+        <div class="block-head"><h2>Agenda</h2><span class="tag">Script</span></div>
+        <div class="card">
+          <div class="script">
+<span class="speaker">BROKER</span>"What I'll do now is just confirm some of the details that we have here on the platform to make sure that it is all accurate, and by the end of the call I'll be able to let you know what your borrowing capacity is and send you through your top 3 lender options. If everything looks good from there, I can walk you through how to proceed with the application."
+            <button class="copy-btn">Copy</button>
+          </div>
+        </div>
+      </section>
+    </section>
+
+    <!-- STEP 2: FACT FIND -->
+    <section id="s2" class="stage hidden">
+      <span class="stage-eyebrow"><span class="dot"></span>Step 2 of 5</span>
+      <h1 class="stage-title">Fact Find</h1>
+      <p class="stage-desc">On the initial call, grab the essential information only — don't overload the customer. Tap each item off as you go.</p>
+
+      <section class="block">
+        <div class="checklist" id="factfindList">
+          <div class="check-item"><span class="box" data-key="ff1"></span> Customer contact info</div>
+          <div class="check-item"><span class="box" data-key="ff2"></span> Property details</div>
+          <div class="check-item"><span class="box" data-key="ff3"></span> Income</div>
+          <div class="check-item"><span class="box" data-key="ff4"></span> Liabilities</div>
+        </div>
+      </section>
+
+      <div class="callout"><span class="icon">💡</span>Keep this stage light — essentials only. Deeper detail comes once the customer is engaged in the comparison.</div>
+    </section>
+
+    <!-- STEP 3: SOLUTION / COMPARISON -->
+    <section id="s3" class="stage hidden">
+      <span class="stage-eyebrow"><span class="dot"></span>Step 3 of 5</span>
+      <h1 class="stage-title">Providing Solution / Product Comparison</h1>
+      <p class="stage-desc">Present options in a way that keeps the customer engaged and satisfies Best Interest Duty.</p>
+
+      <section class="block">
+        <div class="flow-grid">
+          <div class="flow-step"><span class="fnum">01</span><h4>Needs &amp; Objectives</h4><p>Complete this tab before sending the comparison so you understand the customer's preferences.</p></div>
+          <div class="flow-step"><span class="fnum">02</span><h4>Best Interest Duty</h4><p>Select a minimum of 3 products — the first must be the cheapest rate, even if you don't want to send them there.</p></div>
+          <div class="flow-step"><span class="fnum">03</span><h4>Send comparison live</h4><p>Send the link and wait for the customer to open it themselves — guide them through login.</p></div>
+          <div class="flow-step"><span class="fnum">04</span><h4>Product presentation</h4><p>Go through rate, repayment and fees for each lender.</p></div>
+          <div class="flow-step"><span class="fnum">05</span><h4>Recommendation</h4><p>Make a clear recommendation and explain why the other two weren't the best fit.</p></div>
+        </div>
+      </section>
+
+      <section class="block">
+        <div class="block-head"><h2>Keep them engaged</h2><span class="tag">Prompt</span></div>
+        <div class="card">
+          <p>While walking through each lender, keep checking in so the customer is following along, not just listening:</p>
+          <ul>
+            <li>"What rate can you see?"</li>
+            <li>"Have you banked with XYZ before?"</li>
+            <li>"Can you see what the repayment is?"</li>
+          </ul>
+        </div>
+      </section>
+    </section>
+
+    <!-- STEP 4: 6 STEPS OF CLOSING -->
+    <section id="s4" class="stage hidden">
+      <span class="stage-eyebrow"><span class="dot"></span>Step 4 of 5</span>
+      <h1 class="stage-title">6 Steps of Closing</h1>
+      <p class="stage-desc">Move from recommendation to a booked outcome. Work through each step in order — don't skip to a commitment before the customer has picked a bank.</p>
+
+      <section class="block">
+        <div class="card"><h3>1 · Pick a bank</h3><p>Ask which lender they prefer and get a tentative selection, even if they raise an objection first. Use AAPA if one comes up.</p></div>
+        <div class="card"><h3>2 · Sell intellectually</h3><p>Re-explain the savings (use the savings calculator if applicable). For purchases, show how extra repayments or an offset/redraw pay the loan off sooner.</p></div>
+        <div class="card"><h3>3 · Sell emotionally</h3>
+          <p>Link back to the why — build urgency and excitement.</p>
+          <div class="script">
+<span class="speaker">BROKER</span>"...the sooner we can get you pre-approved, the sooner you can make an offer, and we can get you out of renting and paying for someone else's mortgage."
+            <button class="copy-btn">Copy</button>
+          </div>
+        </div>
+        <div class="card"><h3>4 · Gain a commitment</h3>
+          <div class="script">
+<span class="speaker">BROKER</span>"So just want to confirm — you're happy with XYZ Bank which we have presented? If you change your mind we can always change to another lender."
+            <button class="copy-btn">Copy</button>
+          </div>
+        </div>
+        <div class="card"><h3>5 · VVDR</h3><p>VOI, Valuation, Documents, Referrals.</p></div>
+        <div class="card"><h3>6 · Close with an agreed outcome</h3><p>Ensure BBAs are booked within 48 hours.</p></div>
+      </section>
+
+      <section class="block">
+        <div class="block-head"><h2>Closing by intent level</h2></div>
+        <div class="low-high">
+          <div class="lh-card low">
+            <span class="lbl">Low intent</span>
+            <div class="script" style="background:transparent;color:var(--purple-900);border-left:none;padding:0;">
+"I will tentatively select XYZ Bank for now and we can change to another lender if you change your mind by our next appointment. I'll still need you to upload your documents before our next appointment so I can review the servicing — so if you could please upload them by the morning of the appointment day, I will make sure I have all the final numbers ready for you."
+            </div>
+          </div>
+          <div class="lh-card high">
+            <span class="lbl">High intent</span>
+            <p style="margin:0 0 8px; font-size:13px; color:#6b5405; font-weight:700;">Pitch Live Docs / same-day submission</p>
+            <div class="script" style="background:transparent;color:var(--purple-900);border-left:none;padding:0;">
+"Here at Aussie we actually offer a same day submission (within 24 hours) — would you be able to quickly jump on a video call with me now and we can finalize the details and I can get the application underway now."
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <div class="callout"><span class="icon">⚡</span>Hitting an objection mid-close? Open the <strong>Objection handling</strong> panel — the closing objections live under their own tab there.</div>
+    </section>
+
+    <!-- STEP 5: FOLLOW UP -->
+    <section id="s5" class="stage hidden">
+      <span class="stage-eyebrow"><span class="dot"></span>Step 5 of 5</span>
+      <h1 class="stage-title">Follow Up</h1>
+      <p class="stage-desc">Every follow-up call needs a purpose — re-sell and link back to why the customer reached out in the first place.</p>
+
+      <section class="block">
+        <div class="callout"><span class="icon">⏱</span>BBA needs to be booked within 48 hours — the further out it's booked, the more customer intent drops off.</div>
+      </section>
+
+      <section class="block">
+        <div class="block-head"><h2>Call cadence</h2><span class="tag">Minimum 3 attempts, 1–2 days apart</span></div>
+        <div class="flow-grid">
+          <div class="flow-step"><span class="fnum">1</span><h4>Attempt 1</h4><p>Call at the time of the BBA. No show → leave a voice message.</p></div>
+          <div class="flow-step"><span class="fnum">2</span><h4>Attempt 2</h4><p>Call — if no answer, leave a voice message and send an email reminder.</p></div>
+          <div class="flow-step"><span class="fnum">3</span><h4>Attempt 3</h4><p>Call — if no answer, leave a voice message advising you'll close their file, and to reach back out by phone or email when ready.</p></div>
+        </div>
+      </section>
+
+      <section class="block">
+        <div class="block-head"><h2>Documents issue</h2><span class="tag">Script</span></div>
+        <div class="card">
+          <div class="script">
+<span class="speaker">BROKER</span>"I see that you haven't been able to provide the documents for me yet — I can see there's only a couple of things left. I can re-send you the link now, can you please upload while I am on the phone with you so we can get it out of the way."
+
+"Ideally we want to get your application to the bank ASAP to avoid the long queue and get you the approval ASAP, so you can start saving / purchase the property / get rid of those debts."
+
+"I don't want to waste your time with these follow up calls, and I know you don't want to waste my time either — so if you can't provide any documents to me by [X date], I will close off your file and you can reach back out to me when you have more time."
+            <button class="copy-btn">Copy</button>
+          </div>
+        </div>
+      </section>
+
+      <section class="block">
+        <div class="block-head"><h2>Intent issue — still thinking about it</h2><span class="tag">Script</span></div>
+        <div class="card">
+          <div class="script">
+<span class="speaker">BROKER</span>"As I have discussed there is definitely savings to be made — which part of the process, or which lender, is holding you back?"
+            <button class="copy-btn">Copy</button>
+          </div>
+          <p style="margin-top:10px;">If the customer hasn't made their mind up after 3 attempts → close lost.</p>
+        </div>
+      </section>
+    </section>
+
+  </main>
+</div>
+
+<!-- OBJECTION DRAWER -->
+<div class="overlay" id="overlay"></div>
+<div class="drawer" id="drawer">
+  <div class="drawer-head">
+    <div>
+      <h2>Objection handling</h2>
+      <p>AAPA framework — Acknowledge, Agree, Provide information, Agenda</p>
+    </div>
+    <button class="drawer-close" id="closeDrawer">✕</button>
+  </div>
+  <div class="drawer-body">
+    <div class="aapa-strip">
+      <span class="aapa-chip">Acknowledge</span>
+      <span class="aapa-chip">Agree</span>
+      <span class="aapa-chip">Provide info</span>
+      <span class="aapa-chip">Agenda</span>
+    </div>
+    <input class="obj-search" id="objSearch" type="text" placeholder="Search an objection…">
+
+    <div class="obj-group-label">Early call</div>
+    <div class="obj-list" id="objListEarly"></div>
+
+    <div class="obj-group-label">During the close</div>
+    <div class="obj-list" id="objListClose"></div>
+  </div>
+</div>
+
+<script>
+  // ----- Step navigation -----
+  const links = document.querySelectorAll('.step-link');
+  const stages = document.querySelectorAll('.stage');
+  links.forEach(link => {
+    link.addEventListener('click', () => {
+      links.forEach(l => l.classList.remove('active'));
+      link.classList.add('active');
+      const target = link.dataset.target;
+      stages.forEach(s => s.classList.toggle('hidden', s.id !== target));
+      window.scrollTo({top:0, behavior:'smooth'});
+    });
+  });
+
+  // ----- Fact find checklist -----
+  document.querySelectorAll('#factfindList .box').forEach(box => {
+    box.addEventListener('click', () => box.classList.toggle('on'));
+  });
+
+  // ----- Copy buttons -----
+  document.querySelectorAll('.copy-btn').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const scriptEl = btn.parentElement;
+      const text = scriptEl.innerText.replace('Copy','').trim();
+      navigator.clipboard.writeText(text).then(() => {
+        btn.textContent = 'Copied';
+        btn.classList.add('copied');
+        setTimeout(() => { btn.textContent = 'Copy'; btn.classList.remove('copied'); }, 1400);
+      });
+    });
+  });
+
+  // ----- Objection drawer -----
+  const overlay = document.getElementById('overlay');
+  const drawer = document.getElementById('drawer');
+  document.getElementById('openDrawer').addEventListener('click', () => {
+    overlay.classList.add('show'); drawer.classList.add('show');
+  });
+  function closeDrawerFn(){ overlay.classList.remove('show'); drawer.classList.remove('show'); }
+  document.getElementById('closeDrawer').addEventListener('click', closeDrawerFn);
+  overlay.addEventListener('click', closeDrawerFn);
+
+  const earlyObjections = [
+    { q: "I'm busy at the moment / I'm in a meeting right now", a: "Completely understand, I've called you in the middle of a workday. I wasn't looking to take too much of your time right now — I was just giving you a call to follow up on the research you were doing on our platform. I can definitely give you a call back at another time, but I just wanted to make sure we could help you out to make sure it was worth your time — were you just looking at refinancing your property / purchasing a property?" },
+    { q: "I've got another mortgage broker", a: "That's great to hear you've got another broker doing some work for you. I'm not looking to step on anyone's toes right now. What we can actually do is just provide you with a few more options from our panel of lenders so you can make sure you're definitely proceeding with the right option — what has your broker offered you so far?" },
+    { q: "I think I am all good for now", a: "That's all good, I just wanted to give you a quick call since you came onto our platform recently to do some research. Just wanted to double check and make sure you're all good as well. What was the rate you're sitting on at the moment, so I can tell you if we can do anything better?" },
+    { q: "I was just doing some research, nothing serious", a: "That's all good, I'm glad you were able to use our platform to do a bit of research — I just wanted to reach out and see if I could assist with anything off the back of that. When were you looking to potentially purchase a property?" },
+  ];
+
+  const closeObjections = [
+    { q: "I'll chat to my partner about it first", a: "I completely understand, not looking to proceed without your partner's approval of course — and we'd have to sit down together on a video call before proceeding anyway, so I can set up what the next steps would look like for you both. Does XYZ seem like the lender you're leaning towards right now?" },
+    { q: "Let me have a think about it and I'll get back to you", a: "No problems at all — we aren't looking to proceed right now since I'll need your documents, so you'll have some time to have a think. However, so I can show you what those documents look like, does one of the lenders we spoke about stand out more than the other?" },
+    { q: "Don't think I'll do anything right now", a: "No stress — I know I just went through a lot of information, so it's probably a lot to take in and decide on the spot. Was there anything specific holding you back from proceeding, as I can see we can definitely move forward with the refi / AIP for you quickly?" },
+    { q: "Can you push it back for 1 month?", a: "Completely understand, I know you're probably busy and have a lot on your plate right now — however that's where we can assist and manage this process for you from start to finish. We could possibly even have it approved and settled within a month — all you'd have to do now is upload your ID and pay slips and we'll submit your application. Would you be free now (or this afternoon) for a quick video call?" },
+    { q: "I'm going to wait and save up a bit more", a: "Completely understand, timing the market can sometimes help — however, what's holding you back from purchasing at the moment? I've run the numbers and can see you'd be able to enter the market right now, and we could get you sorted with a pre-approval in your back pocket if you did decide to make an offer.\n\nLow deposit → offer alternatives: Guarantor, Gift, FHGS.\nGood deposit, not enough for the property they want → would they consider a smaller property first, building equity toward the bigger one later? Our BAs can help find the right starter property.\nOut of reach for the property they want → would they consider an investment property first? Offer to run the numbers." },
+  ];
+
+  function renderObjections(list, container){
+    container.innerHTML = '';
+    list.forEach((item, idx) => {
+      const el = document.createElement('div');
+      el.className = 'obj-item';
+      el.innerHTML = `<div class="obj-q"><span>${item.q}</span><span class="chev">›</span></div><div class="obj-a">${item.a.replace(/\n/g,'<br><br>')}</div>`;
+      el.querySelector('.obj-q').addEventListener('click', () => el.classList.toggle('open'));
+      container.appendChild(el);
+    });
+  }
+  renderObjections(earlyObjections, document.getElementById('objListEarly'));
+  renderObjections(closeObjections, document.getElementById('objListClose'));
+
+  document.getElementById('objSearch').addEventListener('input', (e) => {
+    const term = e.target.value.toLowerCase();
+    document.querySelectorAll('.obj-item').forEach(item => {
+      const text = item.innerText.toLowerCase();
+      item.style.display = text.includes(term) ? '' : 'none';
+    });
+    document.querySelectorAll('.obj-group-label').forEach(lbl => {
+      const list = lbl.nextElementSibling;
+      const anyVisible = [...list.children].some(c => c.style.display !== 'none');
+      lbl.style.display = anyVisible ? '' : 'none';
+    });
+  });
+</script>
+
+</body>
+</html>
